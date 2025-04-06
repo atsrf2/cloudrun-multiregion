@@ -1,0 +1,26 @@
+resource "google_compute_region_network_endpoint_group" "neg" {
+  for_each = { for backend in var.backends : backend.service_name => backend }
+
+  name                  = "${each.value.service_name}-neg"
+  network_endpoint_type = "SERVERLESS"
+  region                = each.value.region
+  cloud_run {
+    service = each.value.service_name
+  }
+}
+
+resource "google_compute_backend_service" "default" {
+  name                  = "cloudrun-backend"
+  load_balancing_scheme = "INTERNAL"
+  protocol              = "HTTP"
+  enable_cdn            = false
+
+  dynamic "backend" {
+    for_each = google_compute_region_network_endpoint_group.neg
+    content {
+      group = backend.value.id
+    }
+  }
+}
+
+# Add URL map, proxy, forwarding rule (not fully shown here due to length)
